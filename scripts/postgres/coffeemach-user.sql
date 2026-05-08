@@ -1,4 +1,4 @@
-create user cofmachu with password 'cofmachpwd';
+create user cofmachu with password 'cofmachu';
 create database coffeemachine owner cofmachu;
 grant connect on database coffeemachine to cofmachu;
 
