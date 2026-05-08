@@ -8,6 +8,10 @@ build/
 .idea/
 *.iml
 .vscode/
+.project
+.classpath
+.settings/
+bin/
 
 # macOS
 .DS_Store

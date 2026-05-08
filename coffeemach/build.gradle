@@ -2,10 +2,15 @@
 // Install the gradle Ice Builder plug-in from the plug-in portal
 //
 plugins {
-    id 'com.zeroc.gradle.ice-builder.slice' version '1.4.7' apply false
+    id 'com.zeroc.gradle.ice-builder.slice' version '1.5.0' apply false
 }
   
 subprojects {
+    afterEvaluate {
+        tasks.withType(com.zeroc.gradle.icebuilder.slice.SliceTask).configureEach {
+            inputs.property("timestamps", false)
+        }
+    }
     //
     // Apply Java and Ice Builder plug-ins to all sub-projects
     //
@@ -16,6 +21,7 @@ subprojects {
     // Both Client and Server projects share the Printer.ice Slice definitions
     //
     slice {
+        iceHome = '/opt/homebrew'
         java {
             files = [file("../CoffeMach.ice")]
         }

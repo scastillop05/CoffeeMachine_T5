@@ -1,6 +1,12 @@
+import guiInventario.Interfaz;
+import javax.swing.SwingUtilities;
+
 public class BodegaCentral {
 
     public static void main(String[] args) {
-        System.out.println("Sin Implementación");
+        SwingUtilities.invokeLater(() -> {
+            Interfaz frame = new Interfaz();
+            frame.setVisible(true);
+        });
     }
 }
