@@ -20,3 +20,6 @@ __MACOSX/
 # Compiled
 *.class
 *.jar
+
+# Runtime data files
+*.bd
