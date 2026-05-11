@@ -102,60 +102,165 @@ Los siguientes archivos fueron modificados para adaptar el sistema a un entorno 
 
 ---
 
-## 4. Procedimiento de deployment
+## 4. Procedimiento de deployment en laboratorio
 
-El orden de despliegue debe respetarse estrictamente, de menor a mayor dependencia: Base de datos → ServidorCentral → CoffeeMach → cmLogistics → bodegaCentral.
+El deployment se realizó de forma remota desde los equipos personales de los estudiantes, conectados al laboratorio mediante la red virtual **ZeroTier (IAsLab3 — 159924d630d54382)**.
 
-### 4.1 Base de datos (M7)
+El orden de despliegue debe respetarse estrictamente: Base de datos → ServidorCentral → CoffeeMach → cmLogistics → bodegaCentral.
 
-```bash
-psql -U <usuario_admin> -d postgres -f scripts/postgres/coffeemach-user.sql
-psql -U cofmachu -d coffeemachine -f scripts/postgres/coffeemach-ddl.sql
-psql -U cofmachu -d coffeemachine -f scripts/postgres/coffeemach-inserts.sql
-```
+### Infraestructura
 
-### 4.2 ServidorCentral (M5)
+| Componente      | Máquina | IP ZeroTier   | Puerto |
+|-----------------|---------|---------------|--------|
+| Base de datos   | x104m07 | 10.147.17.107 | 5432   |
+| ServidorCentral | x104m05 | 10.147.17.105 | 12345  |
+| coffeeMach M1   | x104m01 | 10.147.17.101 | 12346  |
+| coffeeMach M2   | x104m02 | 10.147.17.102 | 12346  |
+| cmLogistics     | x104m06 | 10.147.17.106 | 12347  |
+| bodegaCentral   | x104m08 | 10.147.17.108 | —      |
 
-```bash
-./gradlew :ServidorCentral:jar
-java -jar ServidorCentral/build/libs/ServidorCentral.jar
-```
+**SO nodos:** Ubuntu 24.04 LTS | **Java:** OpenJDK 11 | **ICE:** 3.7.9 en `/opt/Ice-3.7.9` | **Gradle:** 8.12
 
-Puerto de escucha: **12345**
+### Prerequisitos en el equipo de cada estudiante
 
-### 4.3 CoffeeMach (M1 – M4)
-
-```bash
-./gradlew :coffeeMach:jar
-java -jar coffeeMach/build/libs/coffeeMach.jar
-```
-
-Puerto de escucha: **12346**
-
-### 4.4 cmLogistics (M6)
-
-```bash
-./gradlew :cmLogistics:jar
-java -jar cmLogistics/build/libs/cmLogistics.jar
-```
-
-Puerto de escucha: **12347**  
-Credenciales de prueba: operador `1`, contraseña `1123`
-
-### 4.5 bodegaCentral (M6 — componente independiente)
-
-```bash
-./gradlew :bodegaCentral:jar
-java -jar bodegaCentral/build/libs/bodegaCentral.jar
-```
-
-No requiere otros componentes activos.
+1. Instalar **ZeroTier** y unirse a la red `159924d630d54382`.
+2. Cliente SSH: Windows Terminal / PuTTY (Windows) o Terminal nativo (macOS).
+3. Para componentes con GUI: servidor X11 — **VcXsrv o Xming** (Windows) / **XQuartz** (macOS).
 
 ---
 
-## 5. Resultados de las pruebas
+### 4.1 Base de datos — Sebastian Castillo (x104m07)
 
-Las siguientes pruebas fueron realizadas en entorno local (macOS, Java 22, PostgreSQL 14, ZeroC ICE 3.7).
+**1. Conectarse y acceder como postgres:**
+```bash
+ssh swarch@10.147.17.107
+su - postgres
+```
+
+**2. Crear usuario y base de datos:**
+```bash
+psql -c "CREATE USER cofmachu WITH PASSWORD 'cofmachpwd';"
+psql -c "CREATE DATABASE coffeemachine OWNER cofmachu;"
+psql -c "GRANT CONNECT ON DATABASE coffeemachine TO cofmachu;"
+```
+
+**3. Clonar repo y cargar esquema:**
+```bash
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+psql -h localhost -U cofmachu -d coffeemachine -f CoffeeMachine_T5/scripts/postgres/coffeemach-ddl.sql
+psql -h localhost -U cofmachu -d coffeemachine -f CoffeeMachine_T5/scripts/postgres/coffeemach-inserts.sql
+```
+
+**4. Habilitar conexiones externas:**
+
+En `/etc/postgresql/16/main/pg_hba.conf` agregar al final:
+```
+host coffeemachine cofmachu 10.147.17.0/24 md5
+```
+En `/etc/postgresql/16/main/postgresql.conf` cambiar:
+```
+listen_addresses = '*'
+```
+
+**5. Reiniciar PostgreSQL:**
+```bash
+/usr/bin/pg_ctlcluster 16 main restart
+```
+
+---
+
+### 4.2 ServidorCentral — Jose Miguel Armas (x104m05)
+
+```bash
+ssh -X swarch@10.147.17.105
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+cd CoffeeMachine_T5/coffeemach
+gradle :ServidorCentral:jar
+java -jar ServidorCentral/build/libs/ServidorCentral.jar
+```
+
+**Verificación:** Se abre la ventana "Interfaz Recetas" con ingredientes y recetas cargados desde la BD.
+
+---
+
+### 4.3 coffeeMach instancia 1 — Juan David Salazar (x104m01)
+
+```bash
+ssh -X swarch@10.147.17.101
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+cd CoffeeMachine_T5/coffeemach
+gradle :coffeeMach:jar
+java -jar coffeeMach/build/libs/coffeeMach.jar
+```
+
+**Verificación:** Se abre la ventana "Maquina de Cafe" con insumos, recetas y monedas cargados.
+
+---
+
+### 4.4 coffeeMach instancia 2 — Juan Jose Vidarte (x104m02)
+
+```bash
+ssh -X swarch@10.147.17.102
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+cd CoffeeMachine_T5/coffeemach
+gradle :coffeeMach:jar
+java -jar coffeeMach/build/libs/coffeeMach.jar
+```
+
+---
+
+### 4.5 cmLogistics y bodegaCentral — Santiago Zapata (x104m06 / x104m08)
+
+**cmLogistics:**
+```bash
+ssh swarch@10.147.17.106
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+cd CoffeeMachine_T5/coffeemach
+gradle :cmLogistics:jar
+java -jar cmLogistics/build/libs/cmLogistics.jar
+# Credenciales: operador 1 / contraseña 1123
+```
+
+**bodegaCentral:**
+```bash
+ssh -X swarch@10.147.17.108
+git clone https://github.com/scastillop05/CoffeeMachine_T5.git
+cd CoffeeMachine_T5/coffeemach
+gradle :bodegaCentral:jar
+java -jar bodegaCentral/build/libs/bodegaCentral.jar
+```
+
+**Verificación:** Se abre la ventana "Bodega Central - CoffeeMach" con el inventario inicial.
+
+---
+
+## 5. Flujo de comunicación entre componentes
+
+```
+[coffeeMach M1]  ──ICE 12345──►  [ServidorCentral]  ──JDBC 5432──►  [PostgreSQL]
+[coffeeMach M2]  ──ICE 12345──►  [ServidorCentral]
+[cmLogistics]    ──ICE 12345──►  [ServidorCentral]
+[cmLogistics]    ──ICE 12346──►  [coffeeMach M1/M2]
+[bodegaCentral]  (standalone, sin conexión ICE)
+```
+
+**Descripción del flujo:**
+
+1. **coffeeMach → ServidorCentral (ICE, puerto 12345):** cada instancia de la máquina expendedora se registra con el ServidorCentral al iniciar. Consume los servicios `Alarmas`, `Ventas` y `Recetas` expuestos por el servidor.
+
+2. **ServidorCentral → PostgreSQL (JDBC, puerto 5432):** el ServidorCentral persiste y consulta toda la información del negocio: recetas, ingredientes, operadores, máquinas asignadas, alarmas y ventas.
+
+3. **cmLogistics → ServidorCentral (ICE, puerto 12345):** el operador de logística consulta al ServidorCentral las máquinas asignadas (`verMaquinasAsignadas`) y las alarmas activas (`verAlarmas`) mediante el servicio `logistica`.
+
+4. **cmLogistics → coffeeMach (ICE, puerto 12346):** al resolver una alarma, cmLogistics invoca directamente el método `abastecer(codMaquina, idAlarma)` sobre el proxy ICE de la máquina correspondiente, sin pasar por el ServidorCentral.
+
+5. **bodegaCentral:** opera de forma completamente independiente. Gestiona el inventario físico local de la bodega en memoria y no requiere conexión ICE ni acceso a la base de datos.
+
+---
+
+## 6. Resultados de las pruebas
+
+### 6.1 Entorno local (macOS, Java 22, PostgreSQL 14)
 
 | N.° | Prueba | Resultado |
 |---|---|---|
@@ -168,12 +273,25 @@ Las siguientes pruebas fueron realizadas en entorno local (macOS, Java 22, Postg
 | 7 | cmLogistics: resolución de alarma, llamada abastecer(1,1) recibida en CoffeeMach | Aprobado |
 | 8 | bodegaCentral: GUI inicia con stock inicial correcto | Aprobado |
 
+### 6.2 Entorno de laboratorio (Ubuntu 24.04, Java 11, PostgreSQL 16, ZeroTier)
+
+| N.° | Prueba | Resultado |
+|---|---|---|
+| 1 | PostgreSQL acepta conexiones externas desde subred 10.147.17.0/24 | Aprobado |
+| 2 | ServidorCentral (104m03) conecta a BD (104m08) y carga recetas | Aprobado |
+| 3 | CoffeeMach (104m01) conecta a ServidorCentral y carga GUI | Aprobado |
+| 4 | cmLogistics (104m03) autentica operador y lista máquinas/alarmas | Aprobado |
+| 5 | cmLogistics resuelve alarma: comando abastecer llega a coffeeMach | Aprobado |
+| 6 | bodegaCentral (104m08) inicia GUI con inventario correcto | Aprobado |
+
 ---
 
-## 6. Historial de commits
+## 7. Historial de commits relevantes
 
-| Hash | Descripción |
-|---|---|
-| bbccfc1 | config: ajustar IPs y credenciales para pruebas locales |
+| Hash    | Descripción |
+|---------|-------------|
+| e42ff87 | config: IPs reasignadas a maquinas disponibles en lab |
+| 1e73a5c | config: iceHome para lab Ubuntu y password BD corregido |
+| 448a296 | Organizacion de carpetas |
 | 9eb0ade | feat: implementar cmLogistics y bodegaCentral para resolución de alarmas |
 | 67d1054 | Codigo base del sistema CoffeeMach |
