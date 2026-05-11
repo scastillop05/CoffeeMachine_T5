@@ -13,7 +13,7 @@ Juan Jose Vidarte, Sebastian Castillo, Santiago Zapata, Juan David Salazar, Jose
 
 ## Diagrama de Deployment
 
-![Diagrama de Deployment UML](deployment.png)
+![Diagrama de Deployment UML](Delpoyment_Diagram.pdf)
 
 ---
 
